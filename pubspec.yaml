@@ -1,7 +1,7 @@
 name: binding_router
 description: Binding router is a router that extends from go_router and getx used for binding dependancies.
 version: 0.0.1
-homepage: 
+homepage: https://github.com/kithya570/binding_router
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
