@@ -1,13 +1,19 @@
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'dart:developer';
 
-mixin GetStateUpdaterMixin<T extends StatefulWidget> on State<T> {
+import 'package:flutter/material.dart';
+import 'package:get/instance_manager.dart';
+import 'package:get/state_manager.dart';
+// import 'package:get/get.dart';
+
+mixin GetStateUpdaterMixins<T extends StatefulWidget> on State<T> {
   void getUpdate() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 }
-
-typedef GetControllerBuilder<T extends DisposableInterface> = Widget Function();
+typedef GetControllerBuilder<T extends DisposableInterface> = Widget Function(
+    T controller);
 
 class BindBuilder<T extends GetxController> extends StatefulWidget {
   final GetControllerBuilder builder;
@@ -30,7 +36,7 @@ class BindBuilder<T extends GetxController> extends StatefulWidget {
     this.init,
     this.global = true,
     required this.builder,
-    this.autoRemove = true,
+    this.autoRemove = false,
     this.assignId = false,
     this.initState,
     this.filter,
@@ -46,45 +52,41 @@ class BindBuilder<T extends GetxController> extends StatefulWidget {
 }
 
 class BindBuilderState<T extends GetxController> extends State<BindBuilder<T>>
-    with GetStateUpdaterMixin {
+    with GetStateUpdaterMixins {
   T? controller;
   bool? _isCreator = false;
   VoidCallback? _remove;
   Object? _filter;
-
   @override
   void initState() {
     // _BindBuilderState._currentState = this;
     super.initState();
-    widget.initState?.call(this);
-
+    widget.initState!.call(this);
+    widget.binding?.dependencies();
     var isRegistered = GetInstance().isRegistered<T>(tag: widget.tag);
-    debugPrint('isRegistered=$isRegistered');
-    if (widget.init != null) {
-      if (widget.global) {
-        if (isRegistered) {
-          if (GetInstance().isPrepared<T>(tag: widget.tag)) {
-            _isCreator = true;
-          } else {
-            _isCreator = false;
-          }
-          controller = GetInstance().find<T>(tag: widget.tag);
-        } else {
-          controller = widget.init;
+
+    if (widget.global) {
+      if (isRegistered) {
+        if (GetInstance().isPrepared<T>(tag: widget.tag)) {
           _isCreator = true;
-          GetInstance().put<T>(controller!, tag: widget.tag);
+        } else {
+          _isCreator = false;
+        }
+
+        controller = GetInstance().find<T>(tag: widget.tag);
+        if (isRegistered) {
+          log("$T: Dependencies Injected",
+              time: DateTime.now(), name: "Binding_Router");
         }
       } else {
-        controller = widget.init;
         _isCreator = true;
-        controller?.onStart();
+        throw "Please binding with Get.put($T()) or Get.lazyPut<$T>(()=>$T())";
       }
+    } else {
+      controller = widget.init;
+      _isCreator = true;
+      controller?.onStart();
     }
-
-    if (widget.filter != null) {
-      _filter = widget.filter!(controller!);
-    }
-
     _subscribeToController();
   }
 
@@ -111,15 +113,15 @@ class BindBuilderState<T extends GetxController> extends State<BindBuilder<T>>
   @override
   void dispose() {
     super.dispose();
-    debugPrint('dispose');
-    widget.dispose?.call(this);
+
+    widget.dispose!.call(this);
+    this.controller?.onDelete.call();
     if (_isCreator! || widget.assignId) {
       if (widget.autoRemove && GetInstance().isRegistered<T>(tag: widget.tag)) {
         GetInstance().delete<T>(tag: widget.tag);
       }
     }
-
-    _remove?.call();
+    // _remove?.call();
 
     controller = null;
     _isCreator = null;
@@ -136,7 +138,6 @@ class BindBuilderState<T extends GetxController> extends State<BindBuilder<T>>
   @override
   void didUpdateWidget(BindBuilder oldWidget) {
     super.didUpdateWidget(oldWidget as BindBuilder<T>);
-    // to avoid conflicts when modifying a "grouped" id list.
     if (oldWidget.id != widget.id) {
       _subscribeToController();
     }
@@ -145,22 +146,6 @@ class BindBuilderState<T extends GetxController> extends State<BindBuilder<T>>
 
   @override
   Widget build(BuildContext context) {
-    // return _InheritedGetxController<T>(
-    //   model: controller,
-    //   child: widget.builder(controller),
-    // );
-    return widget.builder();
+    return widget.builder(controller!);
   }
 }
-
-// extension FindExt on BuildContext {
-//   T find<T extends GetxController>() {
-//     return BindBuilder.of<T>(this, rebuild: false);
-//   }
-// }
-
-// extension ObserverEtx on BuildContext {
-//   T obs<T extends GetxController>() {
-//     return BindBuilder.of<T>(this, rebuild: true);
-//   }
-// }
