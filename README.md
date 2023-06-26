@@ -45,6 +45,5 @@ final router = GoRouter(initialLocation: "/", routes: [
 ]);
 ```
 
-
-
-
+## Developer
+Made by Um Kithya Senior Flutter Developer with ❤️
